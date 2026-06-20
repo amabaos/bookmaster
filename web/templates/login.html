@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Вход — BotPlatform</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<div class="login-wrap">
+    <div class="login-box">
+        <div class="login-title">🤖 BotPlatform</div>
+        <div class="login-sub">Панель управления ботами</div>
+
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+
+        <form method="post" action="/login">
+            <div class="form-group">
+                <label class="form-label">Логин</label>
+                <input class="form-control" type="text" name="login" autofocus autocomplete="username">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Пароль</label>
+                <input class="form-control" type="password" name="password" autocomplete="current-password">
+            </div>
+            <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:8px">
+                Войти
+            </button>
+        </form>
+    </div>
+</div>
+</body>
+</html>

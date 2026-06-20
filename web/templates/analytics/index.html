@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Аналитика — {{ shop.name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">📊 Аналитика</div>
+        <div style="color:var(--text-muted);margin-top:4px;font-size:13px">{{ shop.name }}</div>
+    </div>
+    <div style="display:flex;gap:8px">
+        <a href="/shops/{{ shop.id }}/analytics/export/users" class="btn btn-secondary btn-sm">⬇️ Экспорт CSV</a>
+        <a href="/shops/{{ shop.id }}" class="btn btn-secondary btn-sm">← Назад</a>
+    </div>
+</div>
+
+<!-- Основные метрики -->
+<div class="grid-4" style="margin-bottom:24px">
+    <div class="stat-box">
+        <div class="stat-value">{{ total_users }}</div>
+        <div class="stat-label">Всего пользователей</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">{{ activated_users }}</div>
+        <div class="stat-label">Активированы (UTM)</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">{{ captcha_passed_count }}</div>
+        <div class="stat-label">Прошли капчу</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value" style="color:{% if blocked_count > 0 %}#ff4d4d{% else %}var(--text){% endif %}">
+            {{ blocked_count }}
+        </div>
+        <div class="stat-label">Заблокированы сейчас</div>
+    </div>
+</div>
+
+<div class="grid-4" style="margin-bottom:24px">
+    <div class="stat-box">
+        <div class="stat-value">{{ total_starts }}</div>
+        <div class="stat-label">Стартов (всего)</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">{{ total_clicks }}</div>
+        <div class="stat-label">Кликов на оплату</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">{{ conversion }}%</div>
+        <div class="stat-label">Конверсия в оплату</div>
+    </div>
+    <div class="stat-box">
+        <div class="stat-value">
+            {% if activated_users > 0 %}
+                {{ ((captcha_passed_count / activated_users) * 100)|round|int }}%
+            {% else %}—{% endif %}
+        </div>
+        <div class="stat-label">Прохождение капчи</div>
+    </div>
+</div>
+
+<div class="grid-2">
+    <!-- График по дням -->
+    <div class="card">
+        <div class="card-title">Старты по дням (14 дней)</div>
+        {% set max_val = namespace(v=1) %}
+        {% for d in days_data %}
+            {% if d.starts > max_val.v %}{% set max_val.v = d.starts %}{% endif %}
+        {% endfor %}
+        <div class="chart-bars">
+            {% for d in days_data %}
+            {% set pct = (d.starts / max_val.v * 100)|int if max_val.v > 0 else 0 %}
+            <div class="chart-bar-wrap" title="{{ d.starts }} стартов">
+                <div class="chart-bar" style="height:{{ pct }}%"></div>
+                <div class="chart-label">{{ d.date }}</div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Языки -->
+    <div class="card">
+        <div class="card-title">🌐 Распределение по языкам</div>
+        {% if lang_stats %}
+            {% for row in lang_stats %}
+            <div class="utm-row">
+                <div class="utm-label" style="min-width:120px">
+                    {{ row.flag }} {{ row.name }}
+                </div>
+                <div class="utm-bar-bg" style="flex:1">
+                    <div class="utm-bar" style="width:{{ row.pct }}%"></div>
+                </div>
+                <div class="utm-count">{{ row.count }} <span style="color:var(--text-muted);font-size:11px">({{ row.pct }}%)</span></div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div style="color:var(--text-muted);text-align:center;padding:24px 0">
+                Языки не выбраны или не настроены
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- UTM источники -->
+<div class="card">
+    <div class="card-title">Источники трафика (UTM)</div>
+    {% if utm_stats %}
+        {% set max_utm = utm_stats[0][1] if utm_stats else 1 %}
+        {% for source, count in utm_stats[:15] %}
+        <div class="utm-row">
+            <div class="utm-label">{{ source or '(без метки)' }}</div>
+            <div class="utm-bar-bg">
+                <div class="utm-bar" style="width:{{ (count / max_utm * 100)|int }}%"></div>
+            </div>
+            <div class="utm-count">{{ count }}</div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div style="color:var(--text-muted);text-align:center;padding:24px 0">
+            Данных пока нет
+        </div>
+    {% endif %}
+</div>
+
+{% endblock %}

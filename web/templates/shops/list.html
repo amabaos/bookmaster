@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Магазины — BotPlatform{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-title">Мои магазины</div>
+    <a href="/shops/add" class="btn btn-primary">+ Добавить бота</a>
+</div>
+
+{% if shops %}
+<div class="shop-grid">
+    {% for shop in shops %}
+    <a href="/shops/{{ shop.id }}" class="shop-card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+            <div class="shop-card-name">{{ shop.name }}</div>
+            {% if shop.id in active_ids %}
+                <span class="badge badge-green">● Работает</span>
+            {% else %}
+                <span class="badge badge-red">● Остановлен</span>
+            {% endif %}
+        </div>
+        <div class="shop-card-meta">
+            {% if shop.username %}@{{ shop.username }}{% else %}токен не активен{% endif %}
+        </div>
+        <div class="shop-card-meta" style="margin-top:6px">
+            👥 {{ stats[shop.id].users }} пользователей
+        </div>
+    </a>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:60px 24px">
+    <div style="font-size:48px;margin-bottom:16px">🤖</div>
+    <div style="font-size:18px;font-weight:600;margin-bottom:8px">Нет ни одного магазина</div>
+    <div style="color:var(--text-muted);margin-bottom:24px">Добавь первого бота, чтобы начать</div>
+    <a href="/shops/add" class="btn btn-primary">+ Добавить бота</a>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,592 @@
+{% extends "base.html" %}
+{% block title %}{{ shop.name }} — BotPlatform{% endblock %}
+{% block content %}
+
+{% if request.query_params.get('saved') %}
+<div class="alert alert-success">✅ Настройки сохранены</div>
+{% endif %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">{{ shop.name }}</div>
+        <div style="color:var(--text-muted);margin-top:4px;font-size:13px">
+            {% if shop.username %}@{{ shop.username }} · {% endif %}
+            <span id="bot-status">
+                {% if shop.is_active %}<span class="badge badge-green">● Работает</span>
+                {% else %}<span class="badge badge-red">● Остановлен</span>{% endif %}
+            </span>
+        </div>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <a href="/shops/{{ shop.id }}/analytics/" class="btn btn-secondary btn-sm">📊 Аналитика</a>
+        <a href="/shops/{{ shop.id }}/broadcasts/" class="btn btn-secondary btn-sm">📢 Рассылки</a>
+        <form method="post" action="/shops/{{ shop.id }}/toggle" style="margin:0">
+            <button class="btn btn-sm {{ 'btn-secondary' if shop.is_active else 'btn-success' }}">
+                {{ '⏹ Остановить' if shop.is_active else '▶️ Запустить' }}
+            </button>
+        </form>
+        <form method="post" action="/shops/{{ shop.id }}/delete" style="margin:0">
+            <button class="btn btn-danger btn-sm"
+                data-confirm="Удалить магазин {{ shop.name }}? Это действие необратимо.">
+                🗑 Удалить
+            </button>
+        </form>
+    </div>
+</div>
+
+{% if not languages %}
+<div class="alert" style="background:rgba(255,180,0,.12);border:1px solid rgba(255,180,0,.3);color:#ffb400;border-radius:8px;padding:12px 16px;margin-bottom:20px">
+    ⚠️ Языки не настроены. <a href="#" onclick="switchTab('languages')" style="color:#ffb400;text-decoration:underline">Добавьте хотя бы один язык</a> — без него пользователь не увидит выбор.
+</div>
+{% endif %}
+
+<!-- TABS -->
+<div class="tabs">
+    <a class="tab active" data-tab="settings" href="#">⚙️ Настройки</a>
+    <a class="tab" data-tab="languages" href="#">🌐 Языки{% if not languages %} ⚠️{% endif %}</a>
+    <a class="tab" data-tab="products" href="#">🛍 Товары</a>
+    <a class="tab" data-tab="wheel" href="#">🎡 Колесо</a>
+    <a class="tab" data-tab="links" href="#">🔗 UTM-ссылки</a>
+</div>
+
+<!-- TAB: Настройки -->
+<div class="tab-pane" id="settings">
+    <div style="color:var(--text-muted);font-size:13px;margin-bottom:16px;padding:12px 16px;background:rgba(255,255,255,.04);border-radius:8px;border:1px solid var(--border)">
+        💡 Тексты бота (приветствие, меню, поддержка, капча) настраиваются отдельно для каждого языка в&nbsp;
+        <a href="#" onclick="switchTab('languages')" style="color:var(--accent)">🌐 Языках</a>.
+        Здесь — только глобальные параметры.
+    </div>
+    <form method="post" action="/shops/{{ shop.id }}/settings" enctype="multipart/form-data">
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-title">Крипто-оплата</div>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:12px">
+                    Кошельки настраиваются глобально в
+                    <a href="/crypto/" style="color:var(--accent)">🪙 Крипто</a>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Сообщение покупателю</label>
+                    <textarea class="form-control" name="crypto_message" rows="4">{{ shop.crypto_message or '' }}</textarea>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-title">Ежедневное сообщение</div>
+                <div class="form-group">
+                    <label class="form-label">Текст (раз в 24ч при входе в меню)</label>
+                    <textarea class="form-control" name="daily_message_text" rows="4">{{ shop.daily_message_text or '' }}</textarea>
+                </div>
+            </div>
+        </div>
+
+        <button class="btn btn-primary">💾 Сохранить</button>
+    </form>
+</div>
+
+<!-- TAB: Языки -->
+<div class="tab-pane" id="languages" style="display:none">
+
+    <div class="card">
+        <div class="card-title">Как работает выбор языка</div>
+        <p style="color:var(--text-muted);font-size:13px;line-height:1.7">
+            После активации по UTM-ссылке пользователю показываются кнопки с языками.<br>
+            Каждый язык имеет свои тексты меню и фото. Если поле пусто — берётся значение из вкладки «Настройки».<br>
+            Если языков нет — шаг выбора пропускается.
+        </p>
+    </div>
+
+    <!-- Добавить язык -->
+    <div class="card">
+        <div class="card-title">Добавить язык</div>
+        <form method="post" action="/shops/{{ shop.id }}/languages/add">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Название языка</label>
+                    <input class="form-control" type="text" name="name" required placeholder="Русский">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Флаг (эмодзи страны)</label>
+                    <input class="form-control" type="text" name="flag_emoji" placeholder="🇷🇺" maxlength="8"
+                        id="flag-input-new" style="font-size:20px">
+                    <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:6px">
+                        {% for flag in ['🇷🇺','🇺🇸','🇬🇧','🇩🇪','🇫🇷','🇪🇸','🇮🇹','🇵🇹','🇵🇱','🇺🇦','🇰🇿','🇺🇿','🇦🇿','🇬🇪','🇦🇲','🇹🇷','🇮🇷','🇸🇦','🇦🇪','🇨🇳','🇯🇵','🇰🇷','🇮🇳','🇧🇷','🇦🇷'] %}
+                        <button type="button" class="btn btn-secondary btn-sm"
+                            style="font-size:18px;padding:2px 8px"
+                            onclick="document.getElementById('flag-input-new').value='{{ flag }}'">{{ flag }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm">+ Добавить</button>
+        </form>
+    </div>
+
+    <!-- Карточки языков с настройками -->
+    {% if languages %}
+    {% for lang in languages %}
+    <div class="card">
+        <!-- Заголовок языка -->
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-size:26px">{{ lang.flag_emoji or '🌐' }}</span>
+                <div>
+                    <div style="font-weight:600;font-size:16px">{{ lang.name }}</div>
+                    <div style="font-size:12px;color:var(--text-muted)">
+                        {% if lang.is_active %}<span class="badge badge-green">● Активен</span>
+                        {% else %}<span class="badge badge-red">● Выкл</span>{% endif %}
+                        {% if lang.menu_photo %} · 🖼 фото{% endif %}
+                    </div>
+                </div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0">
+                <button class="btn btn-secondary btn-sm" type="button"
+                    onclick="toggleLang({{ lang.id }})">⚙️ Настройки</button>
+                <form method="post" action="/shops/{{ shop.id }}/languages/{{ lang.id }}/toggle" style="margin:0">
+                    <button class="btn btn-secondary btn-sm">{{ 'Выкл' if lang.is_active else 'Вкл' }}</button>
+                </form>
+                <form method="post" action="/shops/{{ shop.id }}/languages/{{ lang.id }}/delete" style="margin:0">
+                    <button class="btn btn-danger btn-sm"
+                        data-confirm="Удалить язык «{{ lang.name }}»?">🗑</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Форма настроек языка (скрыта) -->
+        <div id="lang-{{ lang.id }}" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+            <form method="post" action="/shops/{{ shop.id }}/languages/{{ lang.id }}/settings"
+                  enctype="multipart/form-data">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Название языка</label>
+                        <input class="form-control" type="text" name="name" value="{{ lang.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Флаг эмодзи</label>
+                        <input class="form-control" type="text" name="flag_emoji"
+                            value="{{ lang.flag_emoji or '' }}" maxlength="8"
+                            id="flag-edit-{{ lang.id }}" style="font-size:20px">
+                        <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">
+                            {% for flag in ['🇷🇺','🇺🇸','🇬🇧','🇩🇪','🇫🇷','🇪🇸','🇮🇹','🇵🇹','🇵🇱','🇺🇦','🇰🇿','🇺🇿','🇦🇿','🇬🇪','🇦🇲','🇹🇷','🇮🇷','🇸🇦','🇦🇪','🇨🇳','🇯🇵','🇰🇷','🇮🇳','🇧🇷','🇦🇷'] %}
+                            <button type="button" class="btn btn-secondary btn-sm"
+                                style="font-size:15px;padding:1px 5px"
+                                onclick="document.getElementById('flag-edit-{{ lang.id }}').value='{{ flag }}'">{{ flag }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Приветствие</label>
+                    <textarea class="form-control" name="welcome_text" rows="2"
+                        placeholder="Добро пожаловать! 👋">{{ lang.welcome_text or '' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Текст главного меню</label>
+                    <textarea class="form-control" name="menu_text" rows="2"
+                        placeholder="Выберите раздел:">{{ lang.menu_text or '' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Фото главного меню</label>
+                    {% if lang.menu_photo %}
+                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+                        <span style="color:var(--accent);font-size:13px">🖼 Фото установлено</span>
+                        <form method="post" action="/shops/{{ shop.id }}/languages/{{ lang.id }}/remove_photo" style="margin:0">
+                            <button class="btn btn-danger btn-sm" type="submit">✕ Удалить</button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    <input class="form-control" type="file" name="menu_photo" accept="image/*">
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:4px">Если не задано — используется фото из Настроек</div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Текст поддержки</label>
+                    <textarea class="form-control" name="support_text" rows="2"
+                        placeholder="Напишите нам: @support">{{ lang.support_text or '' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Текст капчи</label>
+                    <textarea class="form-control" name="captcha_text" rows="2"
+                        placeholder="Выберите правильный смайлик 👇">{{ lang.captcha_text or '' }}</textarea>
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-primary btn-sm">💾 Сохранить</button>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="toggleLang({{ lang.id }})">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px">
+        <div style="font-size:36px;margin-bottom:10px">🌐</div>
+        <div style="color:var(--text-muted)">Языков пока нет. Добавь первый выше.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- TAB: Товары -->
+<div class="tab-pane" id="products" style="display:none">
+
+    <!-- Форма добавления -->
+    <div class="card">
+        <div class="card-title">Добавить товар</div>
+        <form method="post" action="/shops/{{ shop.id }}/products/add" enctype="multipart/form-data">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Название (видно в списке товаров в боте)</label>
+                    <input class="form-control" type="text" name="name" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Тип оплаты</label>
+                    <select class="form-control" name="payment_type">
+                        <option value="stars">⭐ Только Stars</option>
+                        <option value="crypto">🪙 Только крипта</option>
+                        <option value="both">Оба варианта</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Цена в Stars</label>
+                    <input class="form-control" type="number" name="price_stars" value="0" min="0">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Цена в USD (для крипты)</label>
+                    <input class="form-control" type="number" name="price_usd" value="0" min="0" step="0.01">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ссылка Stars (платная ссылка на канал)</label>
+                <input class="form-control" type="text" name="stars_link" placeholder="https://t.me/+...">
+            </div>
+            <div class="form-group">
+                <label class="form-label">
+                    Описание товара — карточка в боте, поддерживает HTML
+                    (<code>&lt;b&gt;</code>, <code>&lt;i&gt;</code>, <code>&lt;a href="..."&gt;</code> и т.д.)
+                </label>
+                <textarea class="form-control" name="description" rows="4"
+                    placeholder="&lt;b&gt;Название товара&lt;/b&gt;&#10;&#10;Описание и условия..."></textarea>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Картинка (необязательно)</label>
+                <input class="form-control" type="file" name="image" accept="image/*">
+            </div>
+            <button class="btn btn-primary btn-sm">+ Добавить товар</button>
+        </form>
+    </div>
+
+    <!-- Список товаров -->
+    {% if products %}
+    {% for p in products %}
+    <div class="card" id="product-{{ p.id }}">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:16px">
+            <div style="flex:1">
+                <div style="font-weight:600;margin-bottom:4px">
+                    {{ p.name }}
+                    {% if p.image_path %}<span style="color:var(--text-muted);font-size:12px"> 🖼 есть фото</span>{% endif %}
+                </div>
+                <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px">
+                    {% if p.payment_type == 'stars' %}⭐ {{ p.price_stars }} Stars
+                    {% elif p.payment_type == 'crypto' %}🪙 ${{ '%.2f'|format(p.price_usd) }}
+                    {% else %}⭐ {{ p.price_stars }} Stars / 🪙 ${{ '%.2f'|format(p.price_usd) }}{% endif %}
+                </div>
+                <div style="font-size:13px;color:var(--text-muted);white-space:pre-wrap;max-height:60px;overflow:hidden">{{ p.description or '(нет описания)' }}</div>
+            </div>
+            <div style="display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap">
+                {% if languages %}
+                <button class="btn btn-secondary btn-sm" type="button"
+                    onclick="toggleTr({{ p.id }})">🌐 Переводы</button>
+                {% endif %}
+                <button class="btn btn-secondary btn-sm" type="button"
+                    onclick="toggleEdit({{ p.id }})">✏️ Изменить</button>
+                <form method="post" action="/shops/{{ shop.id }}/products/{{ p.id }}/delete" style="margin:0">
+                    <button class="btn btn-danger btn-sm"
+                        data-confirm="Удалить товар «{{ p.name }}»?">🗑</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Переводы по языкам (скрыто) -->
+        {% if languages %}
+        <div id="tr-{{ p.id }}" style="display:none;margin-top:16px;padding-top:16px;border-top:1px solid var(--border)">
+            <div style="font-size:12px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px">
+                🌐 Переводы по языкам
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+            {% for lang in languages %}
+            {% set tr = tr_map.get(p.id, {}).get(lang.id) %}
+            <div style="border:1px solid var(--border);border-radius:8px;padding:14px">
+                <div style="font-weight:600;margin-bottom:10px;font-size:14px">
+                    {{ lang.flag_emoji or '🌐' }} {{ lang.name }}
+                    {% if tr and (tr.name or tr.description) %}
+                    <span style="color:var(--accent);font-size:11px;margin-left:6px">● есть перевод</span>
+                    {% endif %}
+                </div>
+                <form method="post"
+                      action="/shops/{{ shop.id }}/products/{{ p.id }}/translations/{{ lang.id }}/save"
+                      enctype="multipart/form-data">
+                    <div class="form-group">
+                        <label class="form-label" style="font-size:12px">Название (кнопка в списке)</label>
+                        <input class="form-control" type="text" name="name"
+                            value="{{ tr.name if tr else '' }}"
+                            placeholder="{{ p.name }} (оставь пустым = из основного)">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="font-size:12px">Описание (карточка, HTML)</label>
+                        <textarea class="form-control" name="description" rows="3"
+                            placeholder="(оставь пустым = из основного)">{{ tr.description if tr else '' }}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" style="font-size:12px">Картинка</label>
+                        {% if tr and tr.image_path %}
+                        <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+                            <span style="color:var(--accent);font-size:12px">🖼 Фото есть</span>
+                            <form method="post"
+                                  action="/shops/{{ shop.id }}/products/{{ p.id }}/translations/{{ lang.id }}/remove_image"
+                                  style="margin:0">
+                                <button class="btn btn-danger btn-sm" type="submit" style="padding:2px 8px">✕</button>
+                            </form>
+                        </div>
+                        {% endif %}
+                        <input class="form-control" type="file" name="image" accept="image/*">
+                    </div>
+                    <button class="btn btn-primary btn-sm">💾 Сохранить перевод</button>
+                </form>
+            </div>
+            {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Форма редактирования (скрыта) -->
+        <div id="edit-{{ p.id }}" style="display:none;margin-top:20px;padding-top:16px;border-top:1px solid var(--border)">
+            <form method="post" action="/shops/{{ shop.id }}/products/{{ p.id }}/edit" enctype="multipart/form-data">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" type="text" name="name" value="{{ p.name }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Тип оплаты</label>
+                        <select class="form-control" name="payment_type">
+                            <option value="stars" {{ 'selected' if p.payment_type == 'stars' }}>⭐ Только Stars</option>
+                            <option value="crypto" {{ 'selected' if p.payment_type == 'crypto' }}>🪙 Только крипта</option>
+                            <option value="both" {{ 'selected' if p.payment_type == 'both' }}>Оба варианта</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Цена в Stars</label>
+                        <input class="form-control" type="number" name="price_stars" value="{{ p.price_stars }}" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Цена в USD</label>
+                        <input class="form-control" type="number" name="price_usd" value="{{ p.price_usd }}" min="0" step="0.01">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Ссылка Stars</label>
+                    <input class="form-control" type="text" name="stars_link" value="{{ p.stars_link or '' }}">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Описание (HTML)</label>
+                    <textarea class="form-control" name="description" rows="5">{{ p.description or '' }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Новая картинка (оставь пустым, чтобы не менять)</label>
+                    <input class="form-control" type="file" name="image" accept="image/*">
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-primary btn-sm">💾 Сохранить</button>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="toggleEdit({{ p.id }})">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px">
+        <div style="color:var(--text-muted)">Товаров пока нет. Добавь первый выше.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- TAB: Колесо фортуны -->
+<div class="tab-pane" id="wheel" style="display:none">
+    <div class="card">
+        <div class="card-title">Загрузить файл для колеса</div>
+        <p style="color:var(--text-muted);font-size:13px;margin-bottom:16px">
+            Файлы выдаются пользователям случайно раз в 24 часа. Поддерживаются фото, видео, документы.
+        </p>
+        <form method="post" action="/shops/{{ shop.id }}/wheel/upload" enctype="multipart/form-data">
+            <div class="form-group">
+                <input class="form-control" type="file" name="file"
+                    accept="image/*,video/*,.pdf,.zip,.rar,.doc,.docx" required>
+            </div>
+            <button class="btn btn-primary btn-sm">⬆️ Загрузить</button>
+        </form>
+    </div>
+
+    {% if wheel_files %}
+    <div class="card">
+        <div class="card-title">Файлы в пуле ({{ wheel_files|length }})</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr><th>#</th><th>Файл</th><th>Тип</th><th></th></tr>
+                </thead>
+                <tbody>
+                    {% for wf in wheel_files %}
+                    <tr>
+                        <td style="color:var(--text-muted)">{{ loop.index }}</td>
+                        <td style="font-size:12px;color:var(--text-muted)">
+                            {{ wf.file_path.split('/')[-1].split('\\')[-1] }}
+                        </td>
+                        <td>
+                            {% if wf.file_type == 'photo' %}📷 Фото
+                            {% elif wf.file_type == 'video' %}🎥 Видео
+                            {% else %}📄 Файл{% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="/shops/{{ shop.id }}/wheel/{{ wf.id }}/delete" style="margin:0">
+                                <button class="btn btn-danger btn-sm"
+                                    data-confirm="Удалить этот файл из пула?">🗑</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px">
+        <div style="font-size:36px;margin-bottom:10px">🎡</div>
+        <div style="color:var(--text-muted)">Пул пуст. Загрузи файлы выше — они будут выдаваться случайно.</div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- TAB: UTM-ссылки -->
+<div class="tab-pane" id="links" style="display:none">
+
+    {% if request.query_params.get('error') == 'duplicate' %}
+    <div class="alert alert-error">Такой ключ уже существует.</div>
+    {% endif %}
+
+    <div class="card">
+        <div class="card-title">Как это работает</div>
+        <p style="color:var(--text-muted);font-size:13px;line-height:1.7">
+            Бот реагирует <b style="color:var(--text)">только</b> на пользователей, пришедших по ссылке с одним из добавленных ключей.<br>
+            Без ключа — бот молчит. После первого перехода пользователь запоминается навсегда.
+        </p>
+    </div>
+
+    <!-- Добавить ключ -->
+    <div class="card">
+        <div class="card-title">Добавить ключ</div>
+        <form method="post" action="/shops/{{ shop.id }}/utm/add">
+            <div class="grid-2">
+                <div class="form-group">
+                    <label class="form-label">Ключ (латиница, цифры, _)</label>
+                    <input class="form-control" type="text" name="key" required
+                        placeholder="instagram_stories" pattern="[a-zA-Z0-9_]+"
+                        title="Только латинские буквы, цифры и _">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Описание (для себя)</label>
+                    <input class="form-control" type="text" name="label" placeholder="Сторис в Instagram">
+                </div>
+            </div>
+            <button class="btn btn-primary btn-sm">+ Добавить ключ</button>
+        </form>
+    </div>
+
+    <!-- Список ключей -->
+    {% if utm_keys %}
+    <div class="card">
+        <div class="card-title">Активные ключи ({{ utm_keys|length }})</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Ключ</th>
+                        <th>Описание</th>
+                        <th>Ссылка для пользователей</th>
+                        <th>Статус</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for k in utm_keys %}
+                    <tr>
+                        <td><code style="color:var(--accent)">{{ k.key }}</code></td>
+                        <td style="color:var(--text-muted)">{{ k.label or '—' }}</td>
+                        <td>
+                            {% if shop.username %}
+                            <div style="display:flex;align-items:center;gap:8px">
+                                <code style="font-size:11px;color:var(--text-muted)">
+                                    t.me/{{ shop.username }}?start={{ k.key }}
+                                </code>
+                                <button class="btn btn-secondary btn-sm" type="button"
+                                    onclick="copyAndConfirm(this,'https://t.me/{{ shop.username }}?start={{ k.key }}')">
+                                    Копировать
+                                </button>
+                            </div>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            {% if k.is_active %}
+                                <span class="badge badge-green">● Активен</span>
+                            {% else %}
+                                <span class="badge badge-red">● Выкл</span>
+                            {% endif %}
+                        </td>
+                        <td style="display:flex;gap:6px">
+                            <form method="post" action="/shops/{{ shop.id }}/utm/{{ k.id }}/toggle" style="margin:0">
+                                <button class="btn btn-secondary btn-sm">
+                                    {{ 'Выкл' if k.is_active else 'Вкл' }}
+                                </button>
+                            </form>
+                            <form method="post" action="/shops/{{ shop.id }}/utm/{{ k.id }}/delete" style="margin:0">
+                                <button class="btn btn-danger btn-sm"
+                                    data-confirm="Удалить ключ «{{ k.key }}»? Пользователи с этим ключом потеряют доступ.">🗑</button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="card" style="text-align:center;padding:40px">
+        <div style="font-size:32px;margin-bottom:12px">🔑</div>
+        <div style="color:var(--text-muted)">Ключей пока нет. Добавь первый — без него бот не будет отвечать никому.</div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function copyAndConfirm(btn, text) {
+    navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = '✅ Скопировано';
+    setTimeout(() => btn.textContent = orig, 1500);
+}
+function toggleEdit(id) {
+    const el = document.getElementById('edit-' + id);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function toggleTr(id) {
+    const el = document.getElementById('tr-' + id);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function toggleLang(id) {
+    const el = document.getElementById('lang-' + id);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function switchTab(name) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === name));
+    document.querySelectorAll('.tab-pane').forEach(p => p.style.display = p.id === name ? '' : 'none');
+    history.replaceState(null, '', `?tab=${name}`);
+}
+</script>
+
+{% endblock %}

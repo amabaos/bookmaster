@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pandoc \"C:\\\\Users\\\\Олег\\\\Desktop\\\\project MONEY\\\\TЗ_платформа_ботов.docx\" -o - --track-changes=all)",
+      "Bash(pandoc \"C:\\\\Users\\\\Олег\\\\Desktop\\\\project MONEY\\\\TЗ_платформа_ботов.docx\" -t plain)",
+      "PowerShell(pandoc \"C:\\\\Users\\\\����\\\\Desktop\\\\project MONEY\\\\T�_�����ଠ_��⮢.docx\" -t plain 2>&1)"
+    ]
+  }
+}

@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Добавить бота{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div class="page-title">Добавить нового бота</div>
+    <a href="/shops/" class="btn btn-secondary">← Назад</a>
+</div>
+
+{% if error %}
+<div class="alert alert-error">{{ error }}</div>
+{% endif %}
+
+<div class="card" style="max-width:520px">
+    <form method="post" action="/shops/add">
+        <div class="form-group">
+            <label class="form-label">Название магазина</label>
+            <input class="form-control" type="text" name="name" placeholder="Мой магазин #1" required autofocus>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Токен бота</label>
+            <input class="form-control" type="text" name="token" placeholder="123456789:AAxxxxxxxxxxxxxxxxxxxxxxx" required>
+            <div style="color:var(--text-muted);font-size:12px;margin-top:6px">
+                Получи токен у <a href="https://t.me/BotFather" target="_blank" style="color:var(--accent)">@BotFather</a> командой /newbot
+            </div>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">
+            🚀 Добавить и запустить
+        </button>
+    </form>
+</div>
+
+{% endblock %}

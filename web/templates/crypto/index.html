@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Криптовалюты — BotPlatform{% endblock %}
+{% block content %}
+
+{% if request.query_params.get('error') == 'duplicate' %}
+<div class="alert alert-error">Такой символ уже существует.</div>
+{% endif %}
+
+<div class="page-header">
+    <div class="page-title">🪙 Криптовалюты</div>
+</div>
+
+<div class="card" style="max-width:560px;margin-bottom:24px">
+    <div style="color:var(--text-muted);font-size:13px;margin-bottom:0">
+        Адреса кошельков задаются здесь глобально и применяются ко всем ботам сразу.
+        Каждая валюта имеет свой адрес.
+    </div>
+</div>
+
+<!-- Добавить -->
+<div class="card" style="max-width:560px">
+    <div class="card-title">Добавить валюту</div>
+    <form method="post" action="/crypto/add">
+        <div class="grid-2">
+            <div class="form-group">
+                <label class="form-label">Символ (BTC, ETH, TON …)</label>
+                <input class="form-control" type="text" name="symbol" required
+                    placeholder="USDT" style="text-transform:uppercase">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Название (необязательно)</label>
+                <input class="form-control" type="text" name="name" placeholder="Tether USD">
+            </div>
+        </div>
+        <div class="form-group">
+            <label class="form-label">Адрес кошелька</label>
+            <input class="form-control" type="text" name="wallet_address" placeholder="0x...">
+        </div>
+        <button class="btn btn-primary btn-sm">+ Добавить</button>
+    </form>
+</div>
+
+<!-- Список -->
+{% if coins %}
+<div class="card">
+    <div class="card-title">Все валюты ({{ coins|length }})</div>
+    {% for coin in coins %}
+    <div style="border:1px solid var(--border);border-radius:8px;padding:16px;margin-bottom:12px" id="coin-{{ coin.id }}">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:{% if not coin.wallet_address %}0{% else %}10px{% endif %}">
+            <div style="display:flex;align-items:center;gap:10px">
+                <span style="font-weight:700;font-size:16px;color:var(--accent)">{{ coin.symbol }}</span>
+                {% if coin.name %}<span style="color:var(--text-muted);font-size:13px">{{ coin.name }}</span>{% endif %}
+                {% if coin.is_active %}
+                    <span class="badge badge-green">● Активна</span>
+                {% else %}
+                    <span class="badge badge-red">● Выкл</span>
+                {% endif %}
+            </div>
+            <div style="display:flex;gap:6px">
+                <button class="btn btn-secondary btn-sm" onclick="toggleCoinEdit({{ coin.id }})" type="button">✏️</button>
+                <form method="post" action="/crypto/{{ coin.id }}/toggle" style="margin:0">
+                    <button class="btn btn-secondary btn-sm">{{ 'Выкл' if coin.is_active else 'Вкл' }}</button>
+                </form>
+                <form method="post" action="/crypto/{{ coin.id }}/delete" style="margin:0">
+                    <button class="btn btn-danger btn-sm"
+                        data-confirm="Удалить {{ coin.symbol }}?">🗑</button>
+                </form>
+            </div>
+        </div>
+
+        {% if coin.wallet_address %}
+        <div style="font-size:12px;color:var(--text-muted);margin-bottom:4px">Адрес:</div>
+        <div style="display:flex;align-items:center;gap:8px">
+            <code style="font-size:12px;color:var(--text);word-break:break-all;flex:1">{{ coin.wallet_address }}</code>
+            <button class="btn btn-secondary btn-sm" type="button"
+                onclick="copyAndConfirm(this,'{{ coin.wallet_address }}')">Копировать</button>
+        </div>
+        {% else %}
+        <div style="font-size:12px;color:var(--danger)">⚠️ Адрес не указан</div>
+        {% endif %}
+
+        <!-- Форма редактирования -->
+        <div id="coin-edit-{{ coin.id }}" style="display:none;margin-top:16px;padding-top:14px;border-top:1px solid var(--border)">
+            <form method="post" action="/crypto/{{ coin.id }}/edit">
+                <div class="grid-2">
+                    <div class="form-group">
+                        <label class="form-label">Символ</label>
+                        <input class="form-control" type="text" name="symbol" value="{{ coin.symbol }}" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Название</label>
+                        <input class="form-control" type="text" name="name" value="{{ coin.name or '' }}">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Адрес кошелька</label>
+                    <input class="form-control" type="text" name="wallet_address" value="{{ coin.wallet_address or '' }}">
+                </div>
+                <div style="display:flex;gap:8px">
+                    <button class="btn btn-primary btn-sm">💾 Сохранить</button>
+                    <button class="btn btn-secondary btn-sm" type="button" onclick="toggleCoinEdit({{ coin.id }})">Отмена</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="card" style="text-align:center;padding:48px">
+    <div style="font-size:40px;margin-bottom:12px">🪙</div>
+    <div style="color:var(--text-muted)">Нет ни одной валюты. Добавь первую выше.</div>
+</div>
+{% endif %}
+
+<script>
+function toggleCoinEdit(id) {
+    const el = document.getElementById('coin-edit-' + id);
+    el.style.display = el.style.display === 'none' ? '' : 'none';
+}
+function copyAndConfirm(btn, text) {
+    navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = '✅';
+    setTimeout(() => btn.textContent = orig, 1500);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Рассылки — {{ shop.name }}{% endblock %}
+{% block content %}
+
+<div class="page-header">
+    <div>
+        <div class="page-title">📢 Рассылки</div>
+        <div style="color:var(--text-muted);margin-top:4px;font-size:13px">{{ shop.name }}</div>
+    </div>
+    <a href="/shops/{{ shop.id }}" class="btn btn-secondary btn-sm">← Назад</a>
+</div>
+
+{% set sent = request.query_params.get('sent') %}
+{% if sent and sent != 'error' %}
+<div class="alert alert-success">✅ Рассылка отправлена {{ sent }} пользователям</div>
+{% elif sent == 'error' %}
+<div class="alert alert-error">❌ Бот не запущен — рассылка невозможна</div>
+{% endif %}
+
+<div class="grid-2">
+
+    <!-- Ручная рассылка -->
+    <div class="card">
+        <div class="card-title">Ручная рассылка</div>
+        <form method="post" action="/shops/{{ shop.id }}/broadcasts/send">
+            <div class="form-group">
+                <label class="form-label">Текст сообщения</label>
+                <textarea class="form-control" name="text" rows="5"
+                    placeholder="Напишите текст рассылки..."></textarea>
+            </div>
+            <button class="btn btn-primary"
+                data-confirm="Отправить рассылку всем активным пользователям?">
+                📤 Отправить всем
+            </button>
+        </form>
+    </div>
+
+    <!-- Триггерная рассылка -->
+    <div class="card">
+        <div class="card-title">Триггер: зашёл но не купил</div>
+        <form method="post" action="/shops/{{ shop.id }}/broadcasts/trigger/add">
+            <div class="form-group">
+                <label class="form-label">Через сколько часов отправить</label>
+                <input class="form-control" type="number" name="trigger_delay_hours"
+                    value="24" min="1" max="720">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Текст сообщения</label>
+                <textarea class="form-control" name="text" rows="4"
+                    placeholder="Привет! Ты смотрел наши товары..."></textarea>
+            </div>
+            <button class="btn btn-success btn-sm">+ Добавить триггер</button>
+        </form>
+    </div>
+</div>
+
+<!-- Список триггеров -->
+{% set triggers = broadcasts | selectattr('type', 'eq', 'trigger') | list %}
+{% if triggers %}
+<div class="card">
+    <div class="card-title">Активные триггеры</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th>Событие</th>
+                    <th>Задержка</th>
+                    <th>Текст</th>
+                    <th>Статус</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for b in triggers %}
+                <tr>
+                    <td>Зашёл без покупки</td>
+                    <td>{{ b.trigger_delay_hours }}ч</td>
+                    <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ b.text }}
+                    </td>
+                    <td>
+                        {% if b.is_active %}
+                            <span class="badge badge-green">Активен</span>
+                        {% else %}
+                            <span class="badge badge-red">Выкл</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <form method="post"
+                            action="/shops/{{ shop.id }}/broadcasts/trigger/{{ b.id }}/delete"
+                            style="display:inline">
+                            <button class="btn btn-danger btn-sm"
+                                data-confirm="Удалить этот триггер?">🗑</button>
+                        </form>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+<!-- История ручных рассылок -->
+{% set manuals = broadcasts | selectattr('type', 'eq', 'manual') | list %}
+{% if manuals %}
+<div class="card">
+    <div class="card-title">История ручных рассылок</div>
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr><th>Дата</th><th>Текст</th></tr>
+            </thead>
+            <tbody>
+                {% for b in manuals[:20] %}
+                <tr>
+                    <td style="white-space:nowrap;color:var(--text-muted)">
+                        {{ b.created_at.strftime('%d.%m.%Y %H:%M') }}
+                    </td>
+                    <td style="max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+                        {{ b.text }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
